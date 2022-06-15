@@ -1,0 +1,30 @@
+<?xml version="1.0"?>
+<package format="2">
+
+  <name>voo_wp</name>
+  <version>1.0.0</version>
+  <description>voo_wp</description>
+
+  <maintainer email="tiagopn@ci.ufpb.br">Tiago Nascimento</maintainer>
+
+  <license>MIT</license>
+
+  <buildtool_depend>catkin</buildtool_depend>
+
+  <depend>roscpp</depend>
+  <depend>nodelet</depend>
+  <depend>geometry_msgs</depend>
+  <depend>nav_msgs</depend>
+  <depend>mrs_msgs</depend>
+  <depend>mrs_lib</depend>
+  <depend>dynamic_reconfigure</depend>
+
+  <export>
+
+    <!-- The plugins.xml file defines nodelet as a plugin -->
+    <nodelet plugin="${prefix}/plugins.xml" />
+
+  </export>
+
+</package>
+
