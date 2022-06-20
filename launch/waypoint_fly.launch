@@ -23,8 +23,8 @@
     <!-- Namespace - all topics, services and parameters will be remapped using this namespace as a prefix (eg.: "/voo_wp/odom_uav_in" to "/uav1/voo_wp/odom_uav_in") -->
   <group ns="$(arg UAV_NAME)">
 
-    <!-- WaypointFlier nodelet -->
-    <node pkg="nodelet" type="nodelet" name="voo_wp" args="$(arg nodelet) voo_wp/WaypointFlier $(arg nodelet_manager)" launch-prefix="$(arg launch_prefix_debug)" output="screen">
+    <!-- WPFlier nodelet -->
+    <node pkg="nodelet" type="nodelet" name="voo_wp" args="$(arg nodelet) voo_wp/WPFlier $(arg nodelet_manager)" launch-prefix="$(arg launch_prefix_debug)" output="screen">
 
       <!-- Parameters loaded from launch file -->
       <param name="simulation" value="$(eval arg('RUN_TYPE') == 'simulation')" />

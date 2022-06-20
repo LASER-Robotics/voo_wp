@@ -1,5 +1,5 @@
-<library path="lib/libWaypointFlier">
-  <class name="voo_wp/WaypointFlier" type="voo_wp::WaypointFlier" base_class_type="nodelet::Nodelet">
-    <description>WaypointFlier nodelet</description>
+<library path="lib/libWPFlier">
+  <class name="voo_wp/WPFlier" type="voo_wp::WPFlier" base_class_type="nodelet::Nodelet">
+    <description>WPFlier nodelet</description>
   </class>
 </library>

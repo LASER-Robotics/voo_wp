@@ -25,7 +25,7 @@ generate_dynamic_reconfigure_options(
 
 catkin_package(
   INCLUDE_DIRS include
-  LIBRARIES WaypointFlier
+  LIBRARIES WPFlier
   CATKIN_DEPENDS roscpp mrs_lib mrs_msgs geometry_msgs nav_msgs
   DEPENDS Eigen
   )
@@ -41,13 +41,13 @@ include_directories(
   )
 
 ## Declare a C++ library
-add_library(WaypointFlier src/waypoint_fly.cpp)
+add_library(WPFlier src/waypoint_fly.cpp)
 
 ## Add configure headers for dynamic reconfigure
-add_dependencies(WaypointFlier ${PROJECT_NAME}_gencfg)
+add_dependencies(WPFlier ${PROJECT_NAME}_gencfg)
 
 ## Specify libraries to link a library or executable target against
-target_link_libraries(WaypointFlier
+target_link_libraries(WPFlier
   ${catkin_LIBRARIES}
   ${Eigen_LIBRARIES}
   )

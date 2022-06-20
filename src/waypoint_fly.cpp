@@ -59,9 +59,9 @@ using vec3_t = mrs_lib::geometry::vec_t<3>;
 namespace voo_wp
 {
 
-/* class WaypointFlier //{ */
+/* class WPFlier //{ */
 
-class WaypointFlier : public nodelet::Nodelet {
+class WPFlier : public nodelet::Nodelet {
 
 public:
   /* onInit() is called when nodelet is launched (similar to main() in regular node) */
@@ -171,7 +171,7 @@ private:
 
 /* onInit() //{ */
 
-void WaypointFlier::onInit() {
+void WPFlier::onInit() {
 
   // | ---------------- set my booleans to false ---------------- |
   // but remember, always set them to their default value in the header file
@@ -190,7 +190,7 @@ void WaypointFlier::onInit() {
 
   // | ------------------- load ros parameters ------------------ |
   /* (mrs_lib implementation checks whether the parameter was loaded or not) */
-  mrs_lib::ParamLoader param_loader(nh, "WaypointFlier");
+  mrs_lib::ParamLoader param_loader(nh, "WPFlier");
 
   param_loader.loadParam("uav_name", _uav_name_);
   param_loader.loadParam("simulation", _simulation_);
@@ -211,15 +211,15 @@ void WaypointFlier::onInit() {
   waypoints_loaded_     = true;
   idx_current_waypoint_ = 0;
   c_loop_               = 0;
-  ROS_INFO_STREAM_ONCE("[WaypointFlier]: " << n_waypoints_ << " waypoints loaded");
-  ROS_INFO_STREAM_ONCE("[WaypointFlier]: " << _n_loops_ << " loops requested");
+  ROS_INFO_STREAM_ONCE("[WPFlier]: " << n_waypoints_ << " waypoints loaded");
+  ROS_INFO_STREAM_ONCE("[WPFlier]: " << _n_loops_ << " loops requested");
 
   /* load offset of all waypoints as a static matrix from config file */
   param_loader.loadMatrixStatic("offset", _offset_, 1, 4);
   offsetPoints(waypoints_, _offset_);
 
   if (!param_loader.loadedSuccessfully()) {
-    ROS_ERROR("[WaypointFlier]: failed to load non-optional parameters!");
+    ROS_ERROR("[WPFlier]: failed to load non-optional parameters!");
     ros::shutdown();
   }
 
@@ -227,7 +227,7 @@ void WaypointFlier::onInit() {
 
   mrs_lib::SubscribeHandlerOptions shopts;
   shopts.nh                 = nh;
-  shopts.node_name          = "WaypointFlier";
+  shopts.node_name          = "WPFlier";
   shopts.no_message_timeout = ros::Duration(1.0);
   shopts.threadsafe         = true;
   shopts.autostart          = true;
@@ -236,7 +236,7 @@ void WaypointFlier::onInit() {
 
   sh_odometry_             = mrs_lib::SubscribeHandler<nav_msgs::Odometry>(shopts, "odom_uav_in");
   sh_control_manager_diag_ = mrs_lib::SubscribeHandler<mrs_msgs::ControlManagerDiagnostics>(shopts, "control_manager_diagnostics_in",
-                                                                                            &WaypointFlier::callbackControlManagerDiag, this);
+                                                                                            &WPFlier::callbackControlManagerDiag, this);
 
   /* subscribe ground truth only in simulation, where it is available */
   if (_simulation_) {
@@ -251,24 +251,24 @@ void WaypointFlier::onInit() {
 
   // | -------------------- initialize timers ------------------- |
 
-  timer_publish_dist_to_waypoint_ = nh.createTimer(ros::Rate(_rate_timer_publish_dist_to_waypoint_), &WaypointFlier::callbackTimerPublishDistToWaypoint, this);
+  timer_publish_dist_to_waypoint_ = nh.createTimer(ros::Rate(_rate_timer_publish_dist_to_waypoint_), &WPFlier::callbackTimerPublishDistToWaypoint, this);
 
-  timer_check_subscribers_ = nh.createTimer(ros::Rate(_rate_timer_check_subscribers_), &WaypointFlier::callbackTimerCheckSubscribers, this);
+  timer_check_subscribers_ = nh.createTimer(ros::Rate(_rate_timer_check_subscribers_), &WPFlier::callbackTimerCheckSubscribers, this);
 
   // you can disable autostarting of the timer by the last argument
   timer_publisher_reference_ =
-      nh.createTimer(ros::Rate(_rate_timer_publisher_reference_), &WaypointFlier::callbackTimerPublishSetReference, this, false, false);
+      nh.createTimer(ros::Rate(_rate_timer_publisher_reference_), &WPFlier::callbackTimerPublishSetReference, this, false, false);
 
-  timer_publisher_arrived_ = nh.createTimer(ros::Rate(_rate_timer_publish_arrived_), &WaypointFlier::callbackTimerPublishArrived, this);
+  timer_publisher_arrived_ = nh.createTimer(ros::Rate(_rate_timer_publish_arrived_), &WPFlier::callbackTimerPublishArrived, this);
 
 
   // | --------------- initialize service servers --------------- |
 
-  srv_server_start_waypoints_following_ = nh.advertiseService("start_waypoints_following_in", &WaypointFlier::callbackStartWaypointFollowing, this);
-  srv_server_stop_waypoints_following_  = nh.advertiseService("stop_waypoints_following_in", &WaypointFlier::callbackStopWaypointFollowing, this);
-  srv_server_fly_to_first_waypoint_     = nh.advertiseService("fly_to_first_waypoint_in", &WaypointFlier::callbackFlyToFirstWaypoint, this);
+  srv_server_start_waypoints_following_ = nh.advertiseService("start_waypoints_following_in", &WPFlier::callbackStartWaypointFollowing, this);
+  srv_server_stop_waypoints_following_  = nh.advertiseService("stop_waypoints_following_in", &WPFlier::callbackStopWaypointFollowing, this);
+  srv_server_fly_to_first_waypoint_     = nh.advertiseService("fly_to_first_waypoint_in", &WPFlier::callbackFlyToFirstWaypoint, this);
 
-  srv_server_fly_to_given_waypoint_     = nh.advertiseService("fly_to_given_waypoint_in", &WaypointFlier::callbackFlyToGivenWaypoint, this);
+  srv_server_fly_to_given_waypoint_     = nh.advertiseService("fly_to_given_waypoint_in", &WPFlier::callbackFlyToGivenWaypoint, this);
 
   // | --------------- initialize service clients --------------- |
 
@@ -277,7 +277,7 @@ void WaypointFlier::onInit() {
   // | ---------- initialize dynamic reconfigure server --------- |
 
   reconfigure_server_.reset(new ReconfigureServer(mutex_dynamic_reconfigure_, nh));
-  ReconfigureServer::CallbackType f = boost::bind(&WaypointFlier::callbackDynamicReconfigure, this, _1, _2);
+  ReconfigureServer::CallbackType f = boost::bind(&WPFlier::callbackDynamicReconfigure, this, _1, _2);
   reconfigure_server_->setCallback(f);
 
   /* set the default value of dynamic reconfigure server to the value of parameter with the same name */
@@ -287,7 +287,7 @@ void WaypointFlier::onInit() {
   }
   reconfigure_server_->updateConfig(last_drs_config_);
 
-  ROS_INFO_ONCE("[WaypointFlier]: initialized");
+  ROS_INFO_ONCE("[WPFlier]: initialized");
 
   is_initialized_ = true;
 }
@@ -298,7 +298,7 @@ void WaypointFlier::onInit() {
 
 /* callbackControlManagerDiag() //{ */
 
-void WaypointFlier::callbackControlManagerDiag(mrs_lib::SubscribeHandler<mrs_msgs::ControlManagerDiagnostics>& sh) {
+void WPFlier::callbackControlManagerDiag(mrs_lib::SubscribeHandler<mrs_msgs::ControlManagerDiagnostics>& sh) {
 
   /* do not continue if the nodelet is not initialized */
   if (!is_initialized_)
@@ -306,21 +306,21 @@ void WaypointFlier::callbackControlManagerDiag(mrs_lib::SubscribeHandler<mrs_msg
 
   mrs_msgs::ControlManagerDiagnosticsConstPtr diagnostics = sh.getMsg();
 
-  ROS_INFO_ONCE("[WaypointFlier]: Received first control manager diagnostics msg");
+  ROS_INFO_ONCE("[WPFlier]: Received first control manager diagnostics msg");
 
   if (have_goal_ && !diagnostics->tracker_status.have_goal) {
 
-    ROS_INFO("[WaypointFlier]: Waypoint reached.");
+    ROS_INFO("[WPFlier]: Waypoint reached.");
     have_goal_ = false;
 
     /* start idling at the reached waypoint */
     is_idling_ = true;
 
     ros::NodeHandle nh("~");
-    timer_idling_ = nh.createTimer(ros::Duration(_waypoint_idle_time_), &WaypointFlier::callbackTimerIdling, this,
+    timer_idling_ = nh.createTimer(ros::Duration(_waypoint_idle_time_), &WPFlier::callbackTimerIdling, this,
                                    true);  // the last boolean argument makes the timer run only once
 
-    ROS_INFO("[WaypointFlier]: Idling for %.2f seconds.", _waypoint_idle_time_);
+    ROS_INFO("[WPFlier]: Idling for %.2f seconds.", _waypoint_idle_time_);
   }
 }
 
@@ -330,7 +330,7 @@ void WaypointFlier::callbackControlManagerDiag(mrs_lib::SubscribeHandler<mrs_msg
 
 /* callbackTimerPublishSetReference() //{ */
 
-void WaypointFlier::callbackTimerPublishSetReference([[maybe_unused]] const ros::TimerEvent& te) {
+void WPFlier::callbackTimerPublishSetReference([[maybe_unused]] const ros::TimerEvent& te) {
 
   if (!is_initialized_)
     return;
@@ -348,24 +348,24 @@ void WaypointFlier::callbackTimerPublishSetReference([[maybe_unused]] const ros:
 
     c_loop_++;
 
-    ROS_INFO("[WaypointFlier]: Finished loop %d/%d", c_loop_, _n_loops_);
+    ROS_INFO("[WPFlier]: Finished loop %d/%d", c_loop_, _n_loops_);
 
     if (c_loop_ >= _n_loops_) {
 
-      ROS_INFO("[WaypointFlier]: Finished %d loops of %d waypoints.", _n_loops_, n_waypoints_);
+      ROS_INFO("[WPFlier]: Finished %d loops of %d waypoints.", _n_loops_, n_waypoints_);
 
       if (_land_end_) {
-        ROS_INFO("[WaypointFlier]: Calling land service.");
+        ROS_INFO("[WPFlier]: Calling land service.");
         std_srvs::Trigger srv_land_call;
         srv_client_land_.call(srv_land_call);
       }
 
-      //ROS_INFO("[WaypointFlier]: Shutting down.");
+      //ROS_INFO("[WPFlier]: Shutting down.");
       //ros::shutdown();
       return;
 
     } else {
-      ROS_INFO("[WaypointFlier]: Starting loop %d/%d", c_loop_ + 1, _n_loops_);
+      ROS_INFO("[WPFlier]: Starting loop %d/%d", c_loop_ + 1, _n_loops_);
       idx_current_waypoint_ = 0;
     }
   }
@@ -387,7 +387,7 @@ void WaypointFlier::callbackTimerPublishSetReference([[maybe_unused]] const ros:
   // set the variable under the mutex
   mrs_lib::set_mutexed(mutex_current_waypoint_, waypoints_.at(idx_current_waypoint_), current_waypoint_);
 
-  ROS_INFO("[WaypointFlier]: Flying to waypoint %d: x: %.2f y: %.2f z: %.2f heading: %.2f", idx_current_waypoint_ + 1, new_waypoint.reference.position.x,
+  ROS_INFO("[WPFlier]: Flying to waypoint %d: x: %.2f y: %.2f z: %.2f heading: %.2f", idx_current_waypoint_ + 1, new_waypoint.reference.position.x,
            new_waypoint.reference.position.y, new_waypoint.reference.position.z, new_waypoint.reference.heading);
 
   try {
@@ -406,7 +406,7 @@ void WaypointFlier::callbackTimerPublishSetReference([[maybe_unused]] const ros:
 
 /* callbackTimerPublishDistToWaypoint() //{ */
 
-void WaypointFlier::callbackTimerPublishDistToWaypoint([[maybe_unused]] const ros::TimerEvent& te) {
+void WPFlier::callbackTimerPublishDistToWaypoint([[maybe_unused]] const ros::TimerEvent& te) {
 
   if (!is_initialized_) {
     return;
@@ -429,7 +429,7 @@ void WaypointFlier::callbackTimerPublishDistToWaypoint([[maybe_unused]] const ro
   geometry_msgs::Pose current_pose = mrs_lib::getPose(sh_odometry_.getMsg());
 
   double dist = distance(current_waypoint, current_pose);
-  ROS_INFO("[WaypointFlier]: Distance to waypoint: %.2f", dist);
+  ROS_INFO("[WPFlier]: Distance to waypoint: %.2f", dist);
 
   mrs_msgs::Float64Stamped dist_msg;
   // it is important to set the frame id correctly !!
@@ -448,7 +448,7 @@ void WaypointFlier::callbackTimerPublishDistToWaypoint([[maybe_unused]] const ro
 
 /* callbackTimerPublishArrived() */
 
-void WaypointFlier::callbackTimerPublishArrived([[maybe_unused]] const ros::TimerEvent& te) {
+void WPFlier::callbackTimerPublishArrived([[maybe_unused]] const ros::TimerEvent& te) {
   
   mrs_msgs::BoolStamped is_arrived;
 
@@ -477,22 +477,22 @@ void WaypointFlier::callbackTimerPublishArrived([[maybe_unused]] const ros::Time
 
 /* callbackTimerCheckSubscribers() //{ */
 
-void WaypointFlier::callbackTimerCheckSubscribers([[maybe_unused]] const ros::TimerEvent& te) {
+void WPFlier::callbackTimerCheckSubscribers([[maybe_unused]] const ros::TimerEvent& te) {
 
   if (!is_initialized_)
     return;
 
   if (!sh_odometry_.hasMsg()) {
-    ROS_WARN_THROTTLE(1.0, "[WaypointFlier]: Not received uav odom msg since node launch.");
+    ROS_WARN_THROTTLE(1.0, "[WPFlier]: Not received uav odom msg since node launch.");
   }
 
   if (!sh_control_manager_diag_.hasMsg()) {
-    ROS_WARN_THROTTLE(1.0, "[WaypointFlier]: Not received tracker diagnostics msg since node launch.");
+    ROS_WARN_THROTTLE(1.0, "[WPFlier]: Not received tracker diagnostics msg since node launch.");
   }
 
   if (_simulation_) {
     if (!sh_ground_truth_.hasMsg()) {
-      ROS_WARN_THROTTLE(1.0, "[WaypointFlier]: Not received ground truth odom msg since node launch.");
+      ROS_WARN_THROTTLE(1.0, "[WPFlier]: Not received ground truth odom msg since node launch.");
     }
   }
 }
@@ -501,9 +501,9 @@ void WaypointFlier::callbackTimerCheckSubscribers([[maybe_unused]] const ros::Ti
 
 /* callbackTimerIdling() //{ */
 
-void WaypointFlier::callbackTimerIdling([[maybe_unused]] const ros::TimerEvent& te) {
+void WPFlier::callbackTimerIdling([[maybe_unused]] const ros::TimerEvent& te) {
 
-  ROS_INFO("[WaypointFlier]: Idling finished");
+  ROS_INFO("[WPFlier]: Idling finished");
   is_idling_ = false;
 }
 
@@ -513,13 +513,13 @@ void WaypointFlier::callbackTimerIdling([[maybe_unused]] const ros::TimerEvent& 
 
 /* //{ callbackStartWaypointFollowing() */
 
-bool WaypointFlier::callbackStartWaypointFollowing([[maybe_unused]] std_srvs::Trigger::Request& req, std_srvs::Trigger::Response& res) {
+bool WPFlier::callbackStartWaypointFollowing([[maybe_unused]] std_srvs::Trigger::Request& req, std_srvs::Trigger::Response& res) {
 
   if (!is_initialized_) {
 
     res.success = false;
     res.message = "Waypoint flier not initialized!";
-    ROS_WARN("[WaypointFlier]: Cannot start waypoint following, nodelet is not initialized.");
+    ROS_WARN("[WPFlier]: Cannot start waypoint following, nodelet is not initialized.");
     return true;
   }
 
@@ -527,14 +527,14 @@ bool WaypointFlier::callbackStartWaypointFollowing([[maybe_unused]] std_srvs::Tr
 
     timer_publisher_reference_.start();
 
-    ROS_INFO("[WaypointFlier]: Starting waypoint following.");
+    ROS_INFO("[WPFlier]: Starting waypoint following.");
 
     res.success = true;
     res.message = "Starting waypoint following.";
 
   } else {
 
-    ROS_WARN("[WaypointFlier]: Cannot start waypoint following, waypoints are not set.");
+    ROS_WARN("[WPFlier]: Cannot start waypoint following, waypoints are not set.");
     res.success = false;
     res.message = "Waypoints not set.";
   }
@@ -546,19 +546,19 @@ bool WaypointFlier::callbackStartWaypointFollowing([[maybe_unused]] std_srvs::Tr
 
 /* //{ callbackStopWaypointFollowing() */
 
-bool WaypointFlier::callbackStopWaypointFollowing([[maybe_unused]] std_srvs::Trigger::Request& req, std_srvs::Trigger::Response& res) {
+bool WPFlier::callbackStopWaypointFollowing([[maybe_unused]] std_srvs::Trigger::Request& req, std_srvs::Trigger::Response& res) {
 
   if (!is_initialized_) {
 
     res.success = false;
     res.message = "Waypoint flier not initialized!";
-    ROS_WARN("[WaypointFlier]: Cannot stop waypoint following, nodelet is not initialized.");
+    ROS_WARN("[WPFlier]: Cannot stop waypoint following, nodelet is not initialized.");
     return true;
   }
 
   timer_publisher_reference_.stop();
 
-  ROS_INFO("[WaypointFlier]: Waypoint following stopped.");
+  ROS_INFO("[WPFlier]: Waypoint following stopped.");
 
   res.success = true;
   res.message = "Waypoint following stopped.";
@@ -570,13 +570,13 @@ bool WaypointFlier::callbackStopWaypointFollowing([[maybe_unused]] std_srvs::Tri
 
 /* //{ callbackFlyToFirstWaypoint() */
 
-bool WaypointFlier::callbackFlyToFirstWaypoint([[maybe_unused]] std_srvs::Trigger::Request& req, std_srvs::Trigger::Response& res) {
+bool WPFlier::callbackFlyToFirstWaypoint([[maybe_unused]] std_srvs::Trigger::Request& req, std_srvs::Trigger::Response& res) {
 
   if (!is_initialized_) {
 
     res.success = false;
     res.message = "Waypoint flier not initialized!";
-    ROS_WARN("[WaypointFlier]: Cannot start waypoint following, nodelet is not initialized.");
+    ROS_WARN("[WPFlier]: Cannot start waypoint following, nodelet is not initialized.");
 
     return true;
   }
@@ -611,14 +611,14 @@ bool WaypointFlier::callbackFlyToFirstWaypoint([[maybe_unused]] std_srvs::Trigge
     ss << "Flying to first waypoint: x: " << new_waypoint.reference.position.x << ", y: " << new_waypoint.reference.position.y
        << ", z: " << new_waypoint.reference.position.z << ", heading: " << new_waypoint.reference.heading;
 
-    ROS_INFO_STREAM_THROTTLE(1.0, "[WaypointFlier]: " << ss.str());
+    ROS_INFO_STREAM_THROTTLE(1.0, "[WPFlier]: " << ss.str());
 
     res.success = true;
     res.message = ss.str();
 
   } else {
 
-    ROS_WARN("[WaypointFlier]: Cannot fly to first waypoint, waypoints not loaded!");
+    ROS_WARN("[WPFlier]: Cannot fly to first waypoint, waypoints not loaded!");
 
     res.success = false;
     res.message = "Waypoints not loaded";
@@ -631,13 +631,13 @@ bool WaypointFlier::callbackFlyToFirstWaypoint([[maybe_unused]] std_srvs::Trigge
 
 /* //{ callbackFlyToGivenWaypoint() */
 
-bool WaypointFlier::callbackFlyToGivenWaypoint(mrs_msgs::Vec4::Request& req, mrs_msgs::Vec4::Response& res) {
+bool WPFlier::callbackFlyToGivenWaypoint(mrs_msgs::Vec4::Request& req, mrs_msgs::Vec4::Response& res) {
 
   if (!is_initialized_) {
 
     res.success = false;
     res.message = "Waypoint flier not initialized!";
-    ROS_WARN("[WaypointFlier]: Cannot start waypoint following, nodelet is not initialized.");
+    ROS_WARN("[WPFlier]: Cannot start waypoint following, nodelet is not initialized.");
 
     return true;
   }
@@ -670,7 +670,7 @@ bool WaypointFlier::callbackFlyToGivenWaypoint(mrs_msgs::Vec4::Request& req, mrs
     ss << "Flying to given waypoint: x: " << new_waypoint.reference.position.x << ", y: " << new_waypoint.reference.position.y
        << ", z: " << new_waypoint.reference.position.z << ", heading: " << new_waypoint.reference.heading;
 
-    ROS_INFO_STREAM_THROTTLE(1.0, "[WaypointFlier]: " << ss.str());
+    ROS_INFO_STREAM_THROTTLE(1.0, "[WPFlier]: " << ss.str());
 
     res.success = true;
     res.message = ss.str();
@@ -685,13 +685,13 @@ bool WaypointFlier::callbackFlyToGivenWaypoint(mrs_msgs::Vec4::Request& req, mrs
 
 /* //{ callbackDynamicReconfigure() */
 
-void WaypointFlier::callbackDynamicReconfigure([[maybe_unused]] Config& config, [[maybe_unused]] uint32_t level) {
+void WPFlier::callbackDynamicReconfigure([[maybe_unused]] Config& config, [[maybe_unused]] uint32_t level) {
 
   if (!is_initialized_)
     return;
 
   ROS_INFO(
-      "[WaypointFlier]:"
+      "[WPFlier]:"
       "Reconfigure Request: "
       "Waypoint idle time: %.2f",
       config.waypoint_idle_time);
@@ -709,7 +709,7 @@ void WaypointFlier::callbackDynamicReconfigure([[maybe_unused]] Config& config, 
 
 /* matrixToPoints() //{ */
 
-std::vector<mrs_msgs::Reference> WaypointFlier::matrixToPoints(const Eigen::MatrixXd& matrix) {
+std::vector<mrs_msgs::Reference> WPFlier::matrixToPoints(const Eigen::MatrixXd& matrix) {
 
   std::vector<mrs_msgs::Reference> points;
 
@@ -731,7 +731,7 @@ std::vector<mrs_msgs::Reference> WaypointFlier::matrixToPoints(const Eigen::Matr
 
 /* offsetPoints() //{ */
 
-void WaypointFlier::offsetPoints(std::vector<mrs_msgs::Reference>& points, const Eigen::MatrixXd& offset) {
+void WPFlier::offsetPoints(std::vector<mrs_msgs::Reference>& points, const Eigen::MatrixXd& offset) {
 
   for (size_t i = 0; i < points.size(); i++) {
 
@@ -746,7 +746,7 @@ void WaypointFlier::offsetPoints(std::vector<mrs_msgs::Reference>& points, const
 
 /* distance() //{ */
 
-double WaypointFlier::distance(const mrs_msgs::Reference& waypoint, const geometry_msgs::Pose& pose) {
+double WPFlier::distance(const mrs_msgs::Reference& waypoint, const geometry_msgs::Pose& pose) {
 
   return mrs_lib::geometry::dist(vec3_t(waypoint.position.x, waypoint.position.y, waypoint.position.z),
                                  vec3_t(pose.position.x, pose.position.y, pose.position.z));
@@ -757,4 +757,4 @@ double WaypointFlier::distance(const mrs_msgs::Reference& waypoint, const geomet
 }  // namespace voo_wp
 
 /* every nodelet must include macros which export the class as a nodelet plugin */
-PLUGINLIB_EXPORT_CLASS(voo_wp::WaypointFlier, nodelet::Nodelet);
+PLUGINLIB_EXPORT_CLASS(voo_wp::WPFlier, nodelet::Nodelet);
