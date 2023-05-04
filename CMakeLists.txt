@@ -24,7 +24,7 @@ generate_dynamic_reconfigure_options(
   )
 
 catkin_package(
-  INCLUDE_DIRS include
+  #INCLUDE_DIRS
   LIBRARIES WPFlier
   CATKIN_DEPENDS roscpp mrs_lib mrs_msgs geometry_msgs nav_msgs
   DEPENDS Eigen
